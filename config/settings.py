@@ -4,27 +4,30 @@ from decouple import config, Csv
 import dj_database_url
 import os
 
+# ── Base Directory ───────────────────────────────────────────────────────────
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# ── Security Settings ────────────────────────────────────────────────────────
 SECRET_KEY    = config('SECRET_KEY', default='django-insecure-ganti-ini-di-production')
 DEBUG         = config('DEBUG', default=True, cast=bool)
 ALLOWED_HOSTS = ['*']
 
+# ── Application Definition ───────────────────────────────────────────────────
 INSTALLED_APPS = [
-    'daphne',                               # harus paling atas
+    'daphne',                               # Harus berada di paling atas
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    # Third party
+    # Third party apps
     'rest_framework',
     'rest_framework_simplejwt',
     'corsheaders',
     'django_filters',
     'channels',
-    # Local
+    # Local apps
     'cloudinary_storage',
     'cloudinary',
     'lostfound',
@@ -32,8 +35,9 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
-    'corsheaders.middleware.CorsMiddleware', # Harus di paling atas middleware
+    'corsheaders.middleware.CorsMiddleware', # Wajib di paling atas untuk handling CORS
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware', # Tambahan: Untuk menghandle CSS/JS Django Admin di Railway
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -44,7 +48,7 @@ MIDDLEWARE = [
 
 ROOT_URLCONF = 'config.urls'
 WSGI_APPLICATION = 'config.wsgi.application'
-ASGI_APPLICATION  = 'config.asgi.application'   # untuk channels/websocket
+ASGI_APPLICATION  = 'config.asgi.application'   # Konfigurasi untuk Channels/WebSocket
 
 TEMPLATES = [{
     'BACKEND': 'django.template.backends.django.DjangoTemplates',
@@ -66,10 +70,10 @@ DATABASES = {
     )
 }
 
-# ── Custom User ───────────────────────────────────────────────────────────────
+# ── Custom User Model ────────────────────────────────────────────────────────
 AUTH_USER_MODEL = 'lostfound.User'
 
-# ── Auth validators ───────────────────────────────────────────────────────────
+# ── Auth Validators ──────────────────────────────────────────────────────────
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator'},
 ]
@@ -80,18 +84,20 @@ TIME_ZONE     = 'Asia/Jakarta'
 USE_I18N      = True
 USE_TZ        = True
 
-# ── Static & Media ────────────────────────────────────────────────────────────
+# ── Static & Media (Cloudinary) ───────────────────────────────────────────────
 STATIC_URL  = '/static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'  # Tempat berkumpulnya aset statis Django Admin di server
+
 MEDIA_URL   = '/media/'
 MEDIA_ROOT  = BASE_DIR / 'media'
 DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
 
-# Diberi default kosong agar tidak crash jika variabel belum diset di Railway
+# Mencegah crash jika variabel belum diset di panel Railway
 os.environ['CLOUDINARY_URL'] = config('CLOUDINARY_URL', default='') 
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# ── DRF ───────────────────────────────────────────────────────────────────────
+# ── Django REST Framework (DRF) ────────────────────────────────────────────────
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
@@ -108,7 +114,7 @@ REST_FRAMEWORK = {
     'PAGE_SIZE': 12,
 }
 
-# ── JWT ───────────────────────────────────────────────────────────────────────
+# ── Simple JWT ────────────────────────────────────────────────────────────────
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME':  timedelta(hours=8),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
@@ -116,20 +122,42 @@ SIMPLE_JWT = {
     'AUTH_HEADER_TYPES':      ('Bearer',),
 }
 
-# ── CORS ──────────────────────────────────────────────────────────────────────
+# ── CORS Configuration ────────────────────────────────────────────────────────
 if DEBUG:
     CORS_ALLOW_ALL_ORIGINS = True
 else:
-    # Ditambahkan default localhost agar FE lokal kamu tetap bisa akses backend Railway saat DEBUG=False
+    # Mengizinkan Frontend lokal laptop (localhost) mengakses API Railway meskipun DEBUG=False
     CORS_ALLOWED_ORIGINS = config(
         'CORS_ALLOWED_ORIGINS', 
         default='http://localhost:5173,http://127.0.0.1:5173', 
         cast=Csv()
     )
 
+# ── CSRF Trusted Origins ──────────────────────────────────────────────────────
+# Wajib untuk Django 4.x+ agar tidak terblokir saat login panel admin di domain Railway
+CSRF_TRUSTED_ORIGINS = config(
+    'CSRF_TRUSTED_ORIGINS', 
+    default='https://lostfound-production.up.railway.app,https://*.railway.app', 
+    cast=Csv()
+)
+
 # ── Django Channels (WebSocket) ───────────────────────────────────────────────
-CHANNEL_LAYERS = {
-    'default': {
-        'BACKEND': 'channels.layers.InMemoryChannelLayer',
+REDIS_URL = config('REDIS_URL', default=None)
+
+if REDIS_URL:
+    # Otomatis aktif di Railway jika Anda menghubungkan database Redis
+    CHANNEL_LAYERS = {
+        'default': {
+            'BACKEND': 'channels_redis.core.RedisChannelLayer',
+            'CONFIG': {
+                "hosts": [REDIS_URL],
+            },
+        },
     }
-}
+else:
+    # Otomatis aktif saat testing di laptop (localhost)
+    CHANNEL_LAYERS = {
+        'default': {
+            'BACKEND': 'channels.layers.InMemoryChannelLayer',
+        }
+    }
