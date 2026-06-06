@@ -2,12 +2,13 @@ from pathlib import Path
 from datetime import timedelta
 from decouple import config, Csv
 import dj_database_url
+import os
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY    = config('SECRET_KEY', default='django-insecure-ganti-ini-di-production')
 DEBUG         = config('DEBUG', default=True, cast=bool)
-ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1', cast=Csv())
+ALLOWED_HOSTS = ['*']
 
 INSTALLED_APPS = [
     'daphne',                               # harus paling atas
@@ -31,7 +32,7 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
-    'corsheaders.middleware.CorsMiddleware',
+    'corsheaders.middleware.CorsMiddleware', # Harus di paling atas middleware
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -84,8 +85,9 @@ STATIC_URL  = '/static/'
 MEDIA_URL   = '/media/'
 MEDIA_ROOT  = BASE_DIR / 'media'
 DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
-import os
-os.environ['CLOUDINARY_URL'] = config('CLOUDINARY_URL')
+
+# Diberi default kosong agar tidak crash jika variabel belum diset di Railway
+os.environ['CLOUDINARY_URL'] = config('CLOUDINARY_URL', default='') 
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
@@ -118,11 +120,14 @@ SIMPLE_JWT = {
 if DEBUG:
     CORS_ALLOW_ALL_ORIGINS = True
 else:
-    CORS_ALLOWED_ORIGINS = config('CORS_ALLOWED_ORIGINS', default='', cast=Csv())
+    # Ditambahkan default localhost agar FE lokal kamu tetap bisa akses backend Railway saat DEBUG=False
+    CORS_ALLOWED_ORIGINS = config(
+        'CORS_ALLOWED_ORIGINS', 
+        default='http://localhost:5173,http://127.0.0.1:5173', 
+        cast=Csv()
+    )
 
 # ── Django Channels (WebSocket) ───────────────────────────────────────────────
-# Untuk development pakai InMemoryChannelLayer (tidak perlu Redis)
-# Di production ganti ke RedisChannelLayer
 CHANNEL_LAYERS = {
     'default': {
         'BACKEND': 'channels.layers.InMemoryChannelLayer',
