@@ -123,15 +123,7 @@ SIMPLE_JWT = {
 }
 
 # ── CORS Configuration ────────────────────────────────────────────────────────
-if DEBUG:
-    CORS_ALLOW_ALL_ORIGINS = True
-else:
-    # Mengizinkan Frontend lokal laptop (localhost) mengakses API Railway meskipun DEBUG=False
-    CORS_ALLOWED_ORIGINS = config(
-        'CORS_ALLOWED_ORIGINS', 
-        default='http://localhost:5173,http://127.0.0.1:5173', 
-        cast=Csv()
-    )
+CORS_ALLOW_ALL_ORIGINS = True
 
 # ── CSRF Trusted Origins ──────────────────────────────────────────────────────
 # Wajib untuk Django 4.x+ agar tidak terblokir saat login panel admin di domain Railway
